@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌿 Nature Map: Mill & Stump Ponds with Dams</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+    <style>
+        body {
+            font-family: 'Georgia', serif;
+            background-color: #f0f5f0;
+            margin: 0;
+            padding: 0;
+        }
+
+        h2 {
+            text-align: center;
+            padding: 15px 0;
+            color: #2e5939;
+        }
+
+        #map {
+            height: 600px;
+            width: 90%;
+            margin: 20px auto;
+            border: 4px solid #b7ccb2;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .leaflet-popup-content-wrapper {
+            background-color: #f4f9f4;
+            color: #2e5939;
+            font-size: 14px;
+            border-radius: 8px;
+        }
+
+        .leaflet-tooltip {
+            background: #d9ead3;
+            color: #1b442a;
+            border: 1px solid #88a899;
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        #legend {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .legend-item {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+            margin-right: 8px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <h2>🌿 Nature Map: Mill & Stump Ponds with Dams</h2>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-providers"></script>
+    <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
+
+    <script>
+        // Initialize the map
+        const map = L.map('map');
+        map.setView([40.75, -73.35], 10);
+        L.tileLayer.provider('CartoDB.Positron').addTo(map);
+
+        // Dam icon
+        const damIcon = L.icon({
+            iconUrl: 'https://images.icon-icons.com/2588/PNG/512/dam_icon_154350.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -30]
+        });
+
+        // Pond icon
+        const pondIcon = L.icon({
+            iconUrl: 'https://images.icon-icons.com/3360/PNG/512/fishing_water_pond_nature_wild_ocean_animal_sea_fish_icon_210753.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -30]
+        });
+
+        // Locations data
+        const locations = [
+            { name: "Mill Pond", coords: [40.6634, -73.5295], type: "pond", popup: "🌿 Mill Pond in Wantagh/Bellmore" },
+            { name: "Mill Pond Dam", coords: [40.6629, -73.5300], type: "dam", popup: "🌊 Mill Pond Dam near Merrick Rd" },
+            { name: "Stump Pond", coords: [40.8616, -73.2025], type: "pond", popup: "🌿 Stump Pond at Blydenburgh County Park" },
+            { name: "Stump Pond Dam", coords: [40.8622, -73.2050], type: "dam", popup: "🌊 Stump Pond Dam off New Mill Rd" },
+            { name: "Phillips Mill Pond Dam", coords: [40.8550, -73.2000], type: "dam", popup: "Phillips Mill Pond Dam – Nissequogue River, Smithtown" },
+            { name: "New Mill Pond Dam", coords: [40.8550, -73.2000], type: "dam", popup: "New Mill Pond Dam – Smithtown" },
+            { name: "Patchogue Lake Dam", coords: [40.7650, -73.0150], type: "dam", popup: "Patchogue Lake Dam – Brookhaven" },
+            { name: "Massapequa Reservoir Dam", coords: [40.6800, -73.4700], type: "dam", popup: "Massapequa Reservoir Dam – Massapequa Preserve" },
+            { name: "Leeds Pond Dam", coords: [40.8100, -73.6900], type: "dam", popup: "Leeds Pond Dam – Plandome Manor" }
+        ];
+
+        locations.forEach(loc => {
+            let marker;
+            if (loc.type === "pond") {
+                marker = L.marker(loc.coords, { icon: pondIcon });
+            } else if (loc.type === "dam") {
+                marker = L.marker(loc.coords, { icon: damIcon });
+            }
+            if (marker) {
+                marker.addTo(map)
+                      .bindPopup(loc.popup)
+                      .bindTooltip(loc.name, { permanent: false });
+            }
+        });
+
+        // **Watershed Flood Risk Layer (GeoJSON)**
+        let watershedFloodRiskLayer;
+
+        fetch('https://services6.arcgis.com/DZHaqZm9cxOD4CWM/arcgis/rest/services/Significant_Flooding_HUC12_Watersheds/FeatureServer/13/query?outFields=*&where=1%3D1&f=geojson')
+            .then(response => response.json())
+            .then(floodRiskData => {
+                watershedFloodRiskLayer = L.geoJSON(floodRiskData, {
+                    style: {
+                        color: "#ff0000", // Adjust color as needed
+                        weight: 2,
+                        fillOpacity: 0.3
+                    },
+                    onEachFeature: function (feature, layer) {
+                        layer.bindPopup("Watershed: " + (feature.properties.Name || "N/A") + "<br>Significant Flooding: " + (feature.properties.Significant_Flooding || "N/A"));
+                    }
+                });
+
+                // Layer Control
+                let baseMaps = {
+                    "Base Map": L.tileLayer.provider('CartoDB.Positron')
+                };
+
+                let overlayMaps = {
+                    "Watershed Flood Risk": watershedFloodRiskLayer
+                };
+
+                L.control.layers(baseMaps, overlayMaps, { position: 'bottomleft' }).addTo(map);
+
+                // Legend
+                const legend = L.control({ position: "topright" });
+
+                legend.onAdd = function () {
+                    const div = L.DomUtil.create('div', 'info legend');
+                    div.id = 'legend';
+                    div.innerHTML = `
+                        <div class="legend-item">
+                            <img class="legend-icon" src="https://images.icon-icons.com/3360/PNG/512/fishing_water_pond_nature_wild_ocean_animal_sea_fish_icon_210753.png" alt="Pond Icon" style="width: 20px; height: 20px;"/> Pond
+                        </div>
+                        <div class="legend-item">
+                            <img class="legend-icon" src="https://images.icon-icons.com/2588/PNG/512/dam_icon_154350.png" alt="Dam Icon" style="width: 20px; height: 20px;"/> Dam
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-icon" style="background-color: rgba(255,0,0,0.3); border: 1px solid #ff0000;"></div> Significant Flood Risk (Watershed)
+                        </div>
+                    `;
+                    return div;
+                };
+
+                legend.addTo(map);
+
+                // Fit map to the bounds of the initial locations
+                const bounds = L.latLngBounds(locations.map(loc => loc.coords));
+                map.fitBounds(bounds);
+            })
+            .catch(error => {
+                console.error("Error fetching flood risk data:", error);
+            });
+    </script>
+</body>
+</html>
